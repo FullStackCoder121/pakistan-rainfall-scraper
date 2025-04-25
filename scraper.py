@@ -41,17 +41,18 @@ for station_id, station_name in tqdm(station_list, desc="🔍 Scraping", unit="s
             for row in rows:
                 cols = row.find_all("td")
                 if len(cols) == 4:
-                    province = cols[0].text.strip()
-                    reported_station = cols[1].text.strip()
-                    rainfall = cols[2].text.strip()
                     date = cols[3].text.strip()
+                    
+                    # Skip if date is missing
+                    if not date:
+                        continue
 
                     entry = {
                         'Station ID': station_id,
                         'Station Name': station_name,
-                        'Province': province,
-                        'Reported Station': reported_station,
-                        'Rainfall (mm)': rainfall,
+                        'Province': cols[0].text.strip(),
+                        'Reported Station': cols[1].text.strip(),
+                        'Rainfall (mm)': cols[2].text.strip(),
                         'Date': date
                     }
 
@@ -69,7 +70,10 @@ for station_id, station_name in tqdm(station_list, desc="🔍 Scraping", unit="s
 # Step 4: Convert to DataFrame
 new_df = pd.DataFrame(rainfall_data)
 
-# Step 5: Load existing CSV if exists, then merge
+# Step 5: Remove rows with blank or NaT in date before proceeding
+new_df = new_df[new_df['Date'].str.strip() != ""]
+
+# Step 6: Load existing CSV if exists, then merge
 csv_file = "pakistan_rainfall_data.csv"
 if os.path.exists(csv_file):
     existing_df = pd.read_csv(csv_file)
@@ -77,11 +81,12 @@ if os.path.exists(csv_file):
 else:
     combined_df = new_df
 
-# Step 6: Convert Date column to datetime and remove duplicates
+# Step 7: Convert Date column to datetime and clean
 combined_df['Date'] = pd.to_datetime(combined_df['Date'], errors='coerce', dayfirst=True)
-combined_df = combined_df.drop_duplicates()
+combined_df = combined_df.dropna(subset=['Date'])  # remove rows where Date couldn't be parsed
+combined_df = combined_df.drop_duplicates(subset=['Station ID', 'Date', 'Reported Station'])
 
-# Step 7: Sort and save back to CSV
+# Step 8: Sort and save
 combined_df = combined_df.sort_values(by='Date', ascending=False)
 combined_df.to_csv(csv_file, index=False)
 
