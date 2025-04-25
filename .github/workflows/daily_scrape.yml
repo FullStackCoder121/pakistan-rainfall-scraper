@@ -1,1 +1,54 @@
+name: Daily Rainfall Scraper
 
+on:
+  schedule:
+    - cron: '22 5 * * *'  # Runs daily at 10:22 AM Pakistan Time (UTC+5)
+  workflow_dispatch:       # Manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install dependencies
+        run: |
+          pip install requests beautifulsoup4 pandas tqdm
+
+      - name: 🚀 Run scraper
+        run: python scraper.py
+
+      - name: 🧪 Debug Git Info
+        run: |
+          echo "🔍 Git Remote:"
+          git remote -v
+          echo "🔍 Branch Info:"
+          git branch
+          echo "🔍 Git Status:"
+          git status
+
+      - name: 📤 Commit and Push CSV
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+
+          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
+          echo "https://x-access-token:${GH_PAT}@github.com" > ~/.git-credentials
+          git config --global credential.helper store
+
+          git pull origin $(git branch --show-current)
+          git add *.csv
+          git commit -m "Add data for $(date +'%Y-%m-%d')" || echo "No changes"
+          git push origin HEAD
