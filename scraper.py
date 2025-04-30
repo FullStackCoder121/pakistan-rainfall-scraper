@@ -42,6 +42,9 @@ for station_id, station_name in tqdm(station_list, desc="🔍 Scraping", unit="s
                 cols = row.find_all("td")
                 if len(cols) == 4:
                     date = cols[3].text.strip()
+
+                    # Explicitly format the date (e.g., 30 Apr, 2025)
+                    date = pd.to_datetime(date, errors='coerce').strftime('%d %b, %Y') if date else None
                     
                     # Skip if date is missing
                     if not date:
@@ -74,7 +77,7 @@ new_df = pd.DataFrame(rainfall_data)
 new_df = new_df[new_df['Date'].str.strip() != ""]
 
 # Step 6: Load existing CSV if exists, then merge
-csv_file = "pakistan_rainfall_data.csv"
+csv_file = "testRainfall.csv"
 if os.path.exists(csv_file):
     existing_df = pd.read_csv(csv_file)
     combined_df = pd.concat([existing_df, new_df], ignore_index=True)
@@ -83,12 +86,14 @@ else:
 
 # Step 7: Convert Date column to datetime and clean
 combined_df['Date'] = pd.to_datetime(combined_df['Date'], errors='coerce', dayfirst=True)
-combined_df = combined_df.dropna(subset=['Date'])  # remove rows where Date couldn't be parsed
+combined_df = combined_df.dropna(subset=['Date'])  # Remove rows where Date couldn't be parsed
 combined_df = combined_df.drop_duplicates(subset=['Station ID', 'Date', 'Reported Station'])
 
 # Step 8: Sort and save
 combined_df = combined_df.sort_values(by='Date', ascending=False)
-combined_df.to_csv(csv_file, index=False)
+
+# Save the CSV with proper encoding to handle special characters like °C
+combined_df.to_csv(csv_file, index=False, encoding='utf-8-sig')
 
 print("\n✅ Scraping completed successfully!")
 print(f"📁 Updated data saved to: {csv_file}\n")
